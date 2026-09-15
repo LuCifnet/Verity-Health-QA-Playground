@@ -2,6 +2,8 @@
 
 A Clinical Healthcare Management & QA Automation Playground built for practicing Web UI automation, REST API testing, and security validation.
 
+> 🚧 **Work in Progress**: This project is currently under active development. New features, UI workflows, and automated tests are being developed and tested side-by-side.
+
 ---
 
 ## ⚡ Tech Stack
