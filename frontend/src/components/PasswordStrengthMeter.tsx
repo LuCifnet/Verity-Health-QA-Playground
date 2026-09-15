@@ -5,7 +5,7 @@ interface PasswordStrengthMeterProps {
 }
 
 export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({ password }) => {
-  if (!password) return null
+  const isVisible = Boolean(password)
 
   // Normal, straightforward strength evaluation
   let strength: 'Weak' | 'Medium' | 'Strong' = 'Weak'
@@ -34,12 +34,16 @@ export const PasswordStrengthMeter: React.FC<PasswordStrengthMeterProps> = ({ pa
   }
 
   return (
-    <div className="mt-1 space-y-0.5">
+    <div
+      className={`mt-1 h-[26px] space-y-0.5 transition-opacity duration-200 ${
+        isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}
+    >
       <div className="flex items-center justify-between text-[11px]">
         <span className="text-slate-400">Strength:</span>
         <span
           data-testid="password-strength-label"
-          data-strength-score={score}
+          data-strength-score={isVisible ? score : 0}
           className={`font-semibold ${textColor}`}
         >
           {strength}

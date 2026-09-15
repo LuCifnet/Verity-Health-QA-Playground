@@ -18,32 +18,32 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
 
   const bannerConfig = isDoctor
     ? {
-        image: '/doctor-banner.jpg',
-        alt: 'Licensed Medical Doctor',
-        badge: '✦ Clinical Practitioner Portal',
-        title: 'Verified Medical Practice & Scheduling',
-        desc: 'Dedicated clinical workspace for verified medical practitioners, specialists, and hospital departments.'
-      }
+      image: '/doctor-banner.jpg',
+      alt: 'Licensed Medical Doctor',
+      badge: 'Clinical Practitioner Portal',
+      title: 'Verified Medical Practice & Scheduling',
+      desc: 'Dedicated clinical workspace for verified medical practitioners, specialists, and hospital departments.'
+    }
     : {
-        image: '/patient-banner.jpg',
-        alt: 'Caring Medical Consultation',
-        badge: '✦ Patient Health Portal',
-        title: 'Your Health Journey, Simplified & Connected',
-        desc: 'Access your personal health records, consult specialists, and manage clinical care history with ease.'
-      }
+      image: '/patient-banner.jpg',
+      alt: 'Caring Medical Consultation',
+      badge: 'Patient Health Portal',
+      title: 'Your Health Journey, Simplified & Connected',
+      desc: 'Access your personal health records, consult specialists, and manage clinical care history with ease.'
+    }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100/60 to-slate-100 p-4 sm:p-6 lg:p-10 flex flex-col justify-center items-center font-sans">
       {/* Main 2-Column Split Card */}
       <section className="w-full max-w-5xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl shadow-slate-200/60 overflow-hidden grid grid-cols-1 lg:grid-cols-[420px_1fr]">
         {/* Left Visual Panel with Overlay Branding and Home Navigation */}
-        <aside className="relative hidden lg:flex flex-col justify-between bg-slate-950 overflow-hidden min-h-[620px] p-7">
-          {/* Background Image */}
+        <aside className="relative hidden lg:flex flex-col justify-between bg-slate-950 overflow-hidden self-stretch min-h-[640px] p-7">
+          {/* Background Image - Fixed height inside overflow-hidden prevents any scale/zoom on container resize */}
           <img
             key={bannerConfig.image}
             src={bannerConfig.image}
             alt={bannerConfig.alt}
-            className="absolute inset-0 h-full w-full object-cover object-center filter brightness-95 transition-opacity duration-500 pointer-events-none"
+            className="absolute top-0 left-0 h-[900px] w-full object-cover object-top filter brightness-95 pointer-events-none select-none"
           />
           {/* Dual Soft Gradient Overlays (Top & Bottom for text readability) */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/20 to-slate-950/70 pointer-events-none" />
