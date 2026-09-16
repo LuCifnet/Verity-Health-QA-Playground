@@ -27,7 +27,7 @@ export const swaggerSpec = {
         tags: ['Public'],
         summary: '🔓 Register a new Patient or Doctor account',
         description:
-          'Validates patient/doctor fields with Zod, creates user credentials in Supabase Auth, and creates the medical profile in public.profiles table.',
+          'Validates patient/doctor fields with Zod, securely hashes password with bcrypt, and stores the user profile in PostgreSQL database.',
         requestBody: {
           required: true,
           content: {
@@ -123,7 +123,7 @@ export const swaggerSpec = {
         tags: ['Public'],
         summary: '🔓 Sign in with email and password',
         description:
-          'Authenticates against Supabase Auth and returns an active JWT access token along with the user profile.',
+          'Authenticates against PostgreSQL user credentials with bcrypt and returns an active JWT access token along with the user profile.',
         requestBody: {
           required: true,
           content: {
@@ -174,7 +174,7 @@ export const swaggerSpec = {
                     status: { type: 'string', example: 'available' },
                     message: { type: 'string', example: 'Healthcare Registration Service is online and ready.' },
                     supportedRoles: { type: 'array', items: { type: 'string' }, example: ['patient', 'doctor'] },
-                    supabaseConnected: { type: 'boolean', example: true }
+                    databaseConnected: { type: 'boolean', example: true }
                   }
                 }
               }

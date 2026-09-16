@@ -8,32 +8,53 @@ A Clinical Healthcare Management & QA Automation Playground built for practicing
 
 ## ⚡ Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **Backend**: Node.js, Express, TypeScript, Supabase (PostgreSQL)
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, Nginx
+- **Backend**: Node.js, Express, TypeScript, PostgreSQL (pg, bcryptjs, JWT)
+- **Database**: PostgreSQL 16 (Auto-initializing schema, pgcrypto)
+- **Deployment**: Docker & Docker Compose
 - **API Specs**: OpenAPI 3.0 (Swagger UI)
 - **Testing**: Complete `data-testid` coverage for Cypress, Playwright, and Selenium
 
 ---
 
-## 🚀 Quick Start
+## 🐳 Run with Docker (1 Command — Recommended)
+
+Run the entire full-stack app (PostgreSQL, Backend API, and Frontend SPA):
+
+```bash
+docker compose up --build -d
+```
+
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Swagger Docs**: [http://localhost:3001/api-docs](http://localhost:3001/api-docs)
+- **PostgreSQL**: `localhost:5432` (`db: verity_health`, `user: postgres`, `pass: postgrespassword`)
+
+To stop:
+```bash
+docker compose down
+```
+
+---
+
+## 💻 Local Development (Without Docker)
 
 ### 1. Backend Setup
 
 ```bash
 cd backend
 npm install
-cp .env.example .env     # Add your Supabase & JWT keys
+# Ensure DATABASE_URL in backend/.env is set to your local PostgreSQL instance
 npm run dev              # Runs on http://localhost:3001
 ```
 
-> **Database**: Run [`backend/supabase/schema.sql`](backend/supabase/schema.sql) in your Supabase SQL Editor.
+> **Database**: Tables and indexes are initialized automatically on server startup. Schema reference: [`backend/src/db/schema.sql`](backend/src/db/schema.sql).
 
 ### 2. Frontend Setup
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env     # VITE_API_URL=http://localhost:3001/api
 npm run dev              # Runs on http://localhost:5173
 ```
 
@@ -49,7 +70,7 @@ npm run dev              # Runs on http://localhost:5173
 ### Endpoints
 
 | Method | Endpoint | Description | Auth |
-| :--- | :--- | :--- | :---: |
+| :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/register` | Register Patient or Doctor | Public |
 | `POST` | `/api/auth/login` | Login & receive Bearer JWT | Public |
 | `GET` | `/api/auth/register-status` | Registration system status | Public |
@@ -62,4 +83,4 @@ npm run dev              # Runs on http://localhost:5173
 
 - **Role-based Flows**: Patient & Doctor multi-step registration forms
 - **Nepal Phone Validation**: `NP +977` prefix with 10-digit number validation (`97|98`)
-- **Locators**: Every input, button, tab, dropdown, and error banner includes standard `data-testid` attributes.
+- **Locators**: Every input, button, tab, dropdown, error banner, and toast includes standard `data-testid` attributes.

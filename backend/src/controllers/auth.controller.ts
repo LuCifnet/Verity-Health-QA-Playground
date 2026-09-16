@@ -1,54 +1,59 @@
 import type { Request, Response } from 'express'
+import bcrypt from 'bcryptjs'
+import { query, checkDbConfig } from '../config/db.js'
 import {
-  checkSupabaseConfig,
-  supabaseAdmin,
-  supabaseAuth
-} from '../config/supabase.js'
+  extractBearerToken,
+  signToken,
+  verifyToken
+} from '../config/jwt.js'
 import {
   formatZodErrors,
   loginSchema,
   registerSchema
 } from '../schemas/auth.schema.js'
 
-// Helper to format profile database row to API user object
-function mapProfileToUser(userAuth: { id: string; email?: string | null }, profile?: any) {
+// Helper to format PostgreSQL user row to client user object
+function mapUserRowToResponse(row: any) {
   return {
-    id: userAuth.id,
-    email: userAuth.email ?? profile?.email ?? '',
-    role: profile?.role ?? 'patient',
-    firstName: profile?.first_name ?? null,
-    lastName: profile?.last_name ?? null,
-    phoneNumber: profile?.phone_number ?? null,
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    phoneNumber: row.phone_number,
     // Patient fields
-    dateOfBirth: profile?.date_of_birth ?? null,
-    gender: profile?.gender ?? null,
+    dateOfBirth: row.date_of_birth
+      ? typeof row.date_of_birth === 'string'
+        ? row.date_of_birth.split('T')[0]
+        : new Date(row.date_of_birth).toISOString().split('T')[0]
+      : null,
+    gender: row.gender ?? null,
     // Doctor fields
-    medicalLicenseNumber: profile?.medical_license_number ?? null,
-    specialization: profile?.specialization ?? null,
-    department: profile?.department ?? null,
-    yearsOfExperience: profile?.years_of_experience ?? null,
-    qualification: profile?.qualification ?? null,
-    licenseDocument: profile?.license_document_url ?? null,
+    medicalLicenseNumber: row.medical_license_number ?? null,
+    specialization: row.specialization ?? null,
+    department: row.department ?? null,
+    yearsOfExperience: row.years_of_experience ?? null,
+    qualification: row.qualification ?? null,
+    licenseDocument: row.license_document_url ?? null,
     // Consent
-    termsAccepted: profile?.terms_accepted ?? true
+    termsAccepted: row.terms_accepted ?? true
   }
 }
 
 // GET /api/auth/register-status — called on /register page mount/refresh
 export async function registerStatusHandler(_req: Request, res: Response): Promise<void> {
-  const config = checkSupabaseConfig()
+  const config = checkDbConfig()
   res.status(200).json({
     status: 'available',
     message: 'Healthcare Registration Service is online and ready.',
     supportedRoles: ['patient', 'doctor'],
-    supabaseConnected: config.isConfigured
+    databaseConnected: config.isConfigured
   })
 }
 
 // GET /api/auth/home — called on /home page mount/refresh
 export async function homeHandler(req: Request, res: Response): Promise<void> {
-  const authHeader = req.headers.authorization
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.replace('Bearer ', '').trim() : null
+  const token = extractBearerToken(req.headers.authorization)
 
   if (!token) {
     res.status(200).json({
@@ -61,10 +66,12 @@ export async function homeHandler(req: Request, res: Response): Promise<void> {
   }
 
   try {
-    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token)
-    if (userError || !userData.user) {
+    const decoded = verifyToken(token)
+    const result = await query('SELECT * FROM users WHERE id = $1 LIMIT 1', [decoded.id])
+
+    if (result.rowCount === 0) {
       res.status(200).json({
-        message: 'Session expired or invalid. Please sign in.',
+        message: 'Session expired or user not found. Please sign in.',
         status: 'online',
         authenticated: false,
         user: null
@@ -72,21 +79,14 @@ export async function homeHandler(req: Request, res: Response): Promise<void> {
       return
     }
 
-    const user = userData.user
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
+    const user = result.rows[0]
     res.status(200).json({
       message: 'Welcome back! Healthcare QA Playground API active.',
       status: 'online',
       authenticated: true,
-      user: mapProfileToUser(user, profile)
+      user: mapUserRowToResponse(user)
     })
   } catch (err) {
-    console.error('Home handler error:', err)
     res.status(200).json({
       message: 'Healthcare QA Playground API active',
       status: 'online',
@@ -98,58 +98,33 @@ export async function homeHandler(req: Request, res: Response): Promise<void> {
 
 // GET /api/auth/me — verify session token
 export async function meHandler(req: Request, res: Response): Promise<void> {
-  const config = checkSupabaseConfig()
-  if (!config.isConfigured) {
-    res.status(500).json({
-      message: `Supabase credentials incomplete in .env. Missing: ${config.missingKeys.join(', ')}.`
-    })
-    return
-  }
-
-  const authHeader = req.headers.authorization
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const token = extractBearerToken(req.headers.authorization)
+  if (!token) {
     res.status(401).json({ message: 'Authorization token is missing or invalid.' })
     return
   }
 
-  const token = authHeader.replace('Bearer ', '').trim()
-
   try {
-    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token)
+    const decoded = verifyToken(token)
+    const result = await query('SELECT * FROM users WHERE id = $1 LIMIT 1', [decoded.id])
 
-    if (userError || !userData.user) {
+    if (result.rowCount === 0) {
       res.status(401).json({ message: 'Session is invalid or has expired. Please sign in again.' })
       return
     }
 
-    const user = userData.user
-
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
+    const user = result.rows[0]
     res.status(200).json({
       message: 'Session is valid.',
-      user: mapProfileToUser(user, profile)
+      user: mapUserRowToResponse(user)
     })
   } catch (err) {
-    console.error('Me handler error:', err)
-    res.status(500).json({ message: 'An unexpected server error occurred.' })
+    res.status(401).json({ message: 'Session is invalid or has expired. Please sign in again.' })
   }
 }
 
 // POST /api/auth/register
 export async function registerHandler(req: Request, res: Response): Promise<void> {
-  const config = checkSupabaseConfig()
-  if (!config.isConfigured) {
-    res.status(500).json({
-      message: `Supabase credentials incomplete in .env. Missing: ${config.missingKeys.join(', ')}.`
-    })
-    return
-  }
-
   // Default role to 'patient' if not explicitly provided
   const payload = {
     role: 'patient',
@@ -169,79 +144,81 @@ export async function registerHandler(req: Request, res: Response): Promise<void
   const { email, password, firstName, lastName, phoneNumber, role, termsAccepted } = data
 
   try {
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { firstName, lastName, role }
-      })
-
-    if (authError || !authData.user) {
-      const statusCode = authError?.status === 422 ? 409 : 400
-      res.status(statusCode).json({
-        message: authError?.message ?? 'Could not create account.'
+    // 1. Check if email already exists
+    const existing = await query('SELECT id FROM users WHERE email = $1 LIMIT 1', [email.toLowerCase().trim()])
+    if (existing.rowCount && existing.rowCount > 0) {
+      res.status(409).json({
+        message: 'An account with this email address already exists.'
       })
       return
     }
 
-    // Build profile record according to role
-    const profileData: Record<string, any> = {
-      id: authData.user.id,
+    // 2. Hash password securely
+    const saltRounds = 10
+    const passwordHash = await bcrypt.hash(password, saltRounds)
+
+    // 3. Extract role-specific fields
+    const dateOfBirth = data.role === 'patient' ? data.dateOfBirth : null
+    const gender = data.role === 'patient' ? data.gender || null : null
+
+    const medicalLicenseNumber = data.role === 'doctor' ? data.medicalLicenseNumber : null
+    const specialization = data.role === 'doctor' ? data.specialization : null
+    const department = data.role === 'doctor' ? data.department : null
+    const yearsOfExperience = data.role === 'doctor' ? String(data.yearsOfExperience ?? '') : null
+    const qualification = data.role === 'doctor' ? data.qualification : null
+    const licenseDocument = data.role === 'doctor' ? data.licenseDocument : null
+
+    // 4. Insert user record into PostgreSQL
+    const insertSql = `
+      INSERT INTO users (
+        email, password_hash, role, first_name, last_name, phone_number, terms_accepted,
+        date_of_birth, gender,
+        medical_license_number, specialization, department, years_of_experience, qualification, license_document_url
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9,
+        $10, $11, $12, $13, $14, $15
+      )
+      RETURNING *;
+    `
+
+    const insertValues = [
+      email.toLowerCase().trim(),
+      passwordHash,
       role,
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone_number: phoneNumber,
-      terms_accepted: termsAccepted
-    }
+      firstName.trim(),
+      lastName.trim(),
+      phoneNumber.trim(),
+      termsAccepted,
+      dateOfBirth,
+      gender,
+      medicalLicenseNumber,
+      specialization,
+      department,
+      yearsOfExperience,
+      qualification,
+      licenseDocument
+    ]
 
-    if (data.role === 'patient') {
-      profileData.date_of_birth = data.dateOfBirth
-      profileData.gender = data.gender || null
-    } else if (data.role === 'doctor') {
-      profileData.medical_license_number = data.medicalLicenseNumber
-      profileData.specialization = data.specialization
-      profileData.department = data.department
-      profileData.years_of_experience = data.yearsOfExperience ?? null
-      profileData.qualification = data.qualification
-      profileData.license_document_url = data.licenseDocument
-    }
+    const insertResult = await query(insertSql, insertValues)
+    const newUser = insertResult.rows[0]
 
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert(profileData)
-
-    if (profileError) {
-      // Rollback user creation in auth if profile insert fails
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      console.error('Profile insertion error:', profileError)
-      res.status(500).json({
-        message: `Could not save profile details: ${profileError.message}`
-      })
-      return
-    }
+    console.log(`[PostgreSQL] ✅ New user created: ID #${newUser.id} | Email: ${newUser.email} | Role: ${newUser.role}`)
 
     res.status(201).json({
       message: `${role === 'doctor' ? 'Doctor' : 'Patient'} account created successfully! You can now sign in.`,
-      user: mapProfileToUser(authData.user, profileData)
+      user: mapUserRowToResponse(newUser)
     })
-  } catch (err) {
-    console.error('Registration error:', err)
-    res.status(500).json({ message: 'An unexpected server error occurred.' })
+  } catch (err: any) {
+    console.error('[PostgreSQL] ❌ Registration error:', err)
+    res.status(500).json({
+      message: err.message || 'An unexpected database error occurred during registration.'
+    })
   }
 }
 
 // POST /api/auth/login
 export async function loginHandler(req: Request, res: Response): Promise<void> {
-  const config = checkSupabaseConfig()
-  if (!config.isConfigured) {
-    res.status(500).json({
-      message: `Supabase credentials incomplete in .env. Missing: ${config.missingKeys.join(', ')}.`
-    })
-    return
-  }
-
   const parsed = loginSchema.safeParse(req.body)
   if (!parsed.success) {
     res.status(400).json({
@@ -254,30 +231,40 @@ export async function loginHandler(req: Request, res: Response): Promise<void> {
   const { email, password } = parsed.data
 
   try {
-    const { data, error } = await supabaseAuth.auth.signInWithPassword({
-      email,
-      password
-    })
+    // 1. Fetch user by email
+    const result = await query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email.toLowerCase().trim()])
 
-    if (error || !data.user || !data.session) {
-      res.status(401).json({ message: error?.message || 'Email or password is incorrect.' })
+    if (result.rowCount === 0) {
+      res.status(401).json({ message: 'Invalid email or password.' })
       return
     }
 
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single()
+    const user = result.rows[0]
+
+    // 2. Compare password hash
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash)
+    if (!isPasswordValid) {
+      res.status(401).json({ message: 'Invalid email or password.' })
+      return
+    }
+
+    // 3. Issue JWT Token with exact decoded expiresAt timestamp
+    const { token, expiresAt } = signToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
+    })
 
     res.status(200).json({
       message: 'Welcome back! Login successful.',
-      user: mapProfileToUser(data.user, profile),
-      token: data.session.access_token,
-      expiresAt: data.session.expires_at
+      user: mapUserRowToResponse(user),
+      token,
+      expiresAt
     })
-  } catch (err) {
+  } catch (err: any) {
     console.error('Login error:', err)
-    res.status(500).json({ message: 'An unexpected server error occurred.' })
+    res.status(500).json({
+      message: err.message || 'An unexpected database error occurred during login.'
+    })
   }
 }

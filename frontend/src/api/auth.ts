@@ -13,7 +13,7 @@ export async function registerUser(data: RegisterData): Promise<ApiResult> {
     return (await response.json()) as ApiResult
   } catch {
     return {
-      message: 'Could not connect to the authentication server. Please verify the backend server on port 3001 is running.'
+      message: 'Registration service is temporarily unavailable. Please try again later.'
     }
   }
 }
@@ -28,7 +28,7 @@ export async function loginUser(data: LoginData): Promise<ApiResult> {
     return (await response.json()) as ApiResult
   } catch {
     return {
-      message: 'Could not connect to the authentication server. Please verify the backend server on port 3001 is running.'
+      message: 'Login service is temporarily unavailable. Please try again later.'
     }
   }
 }
@@ -43,7 +43,7 @@ export async function getRegisterStatus(): Promise<ApiResult> {
     return (await response.json()) as ApiResult
   } catch {
     return {
-      message: 'Could not connect to the authentication server. Please verify the backend server on port 3001 is running.'
+      message: 'Service is temporarily unavailable. Please try again later.'
     }
   }
 }
@@ -65,7 +65,7 @@ export async function getHome(token?: string | null): Promise<ApiResult> {
     return (await response.json()) as ApiResult
   } catch {
     return {
-      message: 'Could not connect to the API server. Please verify the backend server on port 3001 is running.'
+      message: 'Service is temporarily unavailable. Please try again later.'
     }
   }
 }
