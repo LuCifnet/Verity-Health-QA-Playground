@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getHome } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { HomePageSkeleton } from '../components/Skeleton'
 
 export const HomePage: React.FC = () => {
   const { user, token, isAuthenticated, login, logout } = useAuth()
+  const toast = useToast()
   const navigate = useNavigate()
   const [sessionStatus, setSessionStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('checking')
   const [apiConnected, setApiConnected] = useState<boolean | null>(null)
@@ -40,6 +42,7 @@ export const HomePage: React.FC = () => {
 
   const handleLogout = () => {
     logout()
+    toast.success('You have been safely signed out.', 'Signed Out')
     navigate('/login')
   }
 
@@ -220,9 +223,9 @@ export const HomePage: React.FC = () => {
                     </dd>
                   </div>
                   <div className="rounded-xl bg-slate-50 p-4 border border-slate-200/70">
-                    <dt className="text-xs font-medium text-slate-500">User ID (Supabase Auth)</dt>
-                    <dd data-testid="user-id-value" className="mt-1 text-xs font-mono text-slate-700 break-all">
-                      {user.id}
+                    <dt className="text-xs font-medium text-slate-500">User ID</dt>
+                    <dd data-testid="user-id-value" className="mt-1 text-sm font-bold text-slate-900 break-all">
+                      #{user.id}
                     </dd>
                   </div>
                   {user.firstName && (

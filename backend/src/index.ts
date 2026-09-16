@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import swaggerUi from 'swagger-ui-express'
+import { initDb } from './config/db.js'
 import { swaggerSpec } from './config/swagger.js'
 import { applySecurityMiddleware } from './middleware/security.js'
 import authRoutes from './routes/auth.routes.js'
@@ -28,7 +29,9 @@ app.use((_req, res) => {
   res.status(404).json({ message: 'Endpoint not found' })
 })
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`[API Server] Running at http://localhost:${port}`)
   console.log(`[Swagger UI] Documentation available at http://localhost:${port}/api-docs`)
+  // Auto-initialize PostgreSQL database schema
+  await initDb()
 })

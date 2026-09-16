@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: qa-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: verity_health
+    ports:
+      - '5433:5432'  # Use 5433 on host to avoid conflict with local PostgreSQL 17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d verity_health']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: qa-backend
+    restart: always
+    environment:
+      PORT: 3001
+      CLIENT_ORIGIN: 'http://localhost:5173'
+      # Uses internal Docker network host "postgres" (not localhost)
+      DATABASE_URL: 'postgresql://postgres:postgrespassword@postgres:5432/verity_health'
+      JWT_SECRET: 'verity_health_qa_playground_jwt_super_secret_key_2026_dev'
+      JWT_EXPIRES_IN: '7d'
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: qa-frontend
+    restart: always
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
